@@ -2,7 +2,7 @@
  RGB LED - Automatic Smooth Color Cycling
  
  Marco Colli
- April 2012
+ April 2012, FEb 2018
  
  Uses the properties of the RGB Colour Cube
  The RGB colour space can be viewed as a cube of colour. If we assume a cube of dimension 1, then the 
@@ -10,26 +10,29 @@
  The transitions between each vertex will be a smooth colour flow and we can exploit this by using the 
  path coordinates as the LED transition effect. 
  */
-#define  ATTINY2313  1
-
 #define  IDENTIFY_PIN  0
+#define  ATTINY2313  0
 #define  RANDOM_DISPLAY  1
 #define  DEBUG_MODE  0
 
-#if ATTINY2313
+#if DEBUG_MODE
+#define PRINT(s,v){ Serial.print(F(s)); Serial.print(v); }
+#define PRINTS(s) { Serial.print(F(s)); }
+#else
+#define PRINT(s,v)
+#define PRINTS(s)
+#endif
 
+#if ATTINY2313
 // Output pins for PWM using ATTiny 2313 CPU
 #define  R_PIN  13  // Red LED
 #define  G_PIN  11  // Green LED
 #define  B_PIN  12  // Blue LED
-
 #else
-
 // Output pins for PWM using Arduino Uno
 #define  R_PIN  3  // Red LED
 #define  G_PIN  5  // Green LED
 #define  B_PIN  6  // Blue LED
-
 #endif
 
 // Constants for readability are better than magic numbers
@@ -47,7 +50,7 @@
 // Structure to contain a 3D coordinate
 typedef struct
 {
-  byte  x, y, z;
+  uint16_t  x, y, z;
 } 
 coord;
 
@@ -103,7 +106,7 @@ uint16_t MD_Random(int nMax)
  representation as decimal, so bytes 0x12, 0x34 ... should be interpreted as vertex 1 to 
  v2 to v3 to v4 (ie, one continuous path B to C to D to E).
  */
-const byte path[] =
+const uint8_t path[] =
 {
   0x01, 0x23, 0x45, 0x67, 0x21, 0x65, 0x00,  // trace the edges
   0x26, 0x41, 0x35, 0x71, 0x25, 0x36, 0x14, 0x70,  // do the diagonals
@@ -117,14 +120,14 @@ void setup()
 {
 #if  DEBUG_MODE
   Serial.begin(57600);
-  Serial.println("[Mood Lamp]");
-#if RANDOM_DISPLAY
-  Serial.print("Random");
-#else
-  Serial.print("Path");
 #endif
-  Serial.println(" traversal enabled");
-#endif //DEBUG
+  PRINTS("\n[Mood Lamp]\n");
+#if RANDOM_DISPLAY
+  PRINTS("Random");
+#else
+  PRINTS("Path");
+#endif
+  PRINTS(" traversal enabled");
 
   pinMode(R_PIN, OUTPUT);   // sets the pins as output
   pinMode(G_PIN, OUTPUT);  
@@ -150,7 +153,7 @@ void setup()
   v.z = (vertex[0].z ? MAX_RGB_VALUE : MIN_RGB_VALUE);
 }
 
-void traverse(int dx, int dy, int dz)
+void traverse(int16_t dx, int16_t dy, int16_t dz)
 // Move along the colour line from where we are to the next vertex of the cube.
 // The transition is achieved by applying the 'delta' value to the coordinate.
 // By definition all the coordinates will complete the transition at the same 
@@ -159,7 +162,7 @@ void traverse(int dx, int dy, int dz)
   if ((dx == 0) && (dy == 0) && (dz == 0))   // no point looping if we are staying in the same spot!
     return;
 
-  for (int i = 0; i < MAX_RGB_VALUE-MIN_RGB_VALUE; i++, v.x += dx, v.y += dy, v.z += dz)
+  for (int16_t i = 0; i < MAX_RGB_VALUE-MIN_RGB_VALUE; i++, v.x += dx, v.y += dy, v.z += dz)
   {
     // set the colour in the LED
     analogWrite(R_PIN, v.x);
@@ -184,7 +187,7 @@ void loop()
   v2 = MD_Random(MAX_VERTICES);
 #else
   // loop through the path, traversing from one point to the next
-  static int  i = 0;  // the index for the defined path
+  static int16_t  i = 0;  // the index for the defined path
 
   if (i++ >= 2*MAX_PATH_SIZE)
   { 
@@ -199,22 +202,18 @@ void loop()
   if (i&1)  // odd number is the second element and ...
     v2 = path[i>>1] & 0xf;  // ... the bottom nybble (index /2) or ...
   else      // ... even number is the first element and ...
-  v2 = path[i>>1] >> 4;  // ... the top nybble
+    v2 = path[i>>1] >> 4;  // ... the top nybble
 
 #endif
 
+  PRINT("\nv[", v1);
+  PRINT("] to v[", v2);
+  PRINTS("]");
 #if DEBUG_MODE
-  Serial.print("v[");
-  Serial.print(v1);
-  Serial.print("] to v[");
-  Serial.print(v2);
-  Serial.println("]");
   delay(500);
 #else
   // trace the colour path and then loop repeat
-  traverse(vertex[v2].x-vertex[v1].x, 
-  vertex[v2].y-vertex[v1].y, 
-  vertex[v2].z-vertex[v1].z);
+  traverse(vertex[v2].x-vertex[v1].x, vertex[v2].y-vertex[v1].y, vertex[v2].z-vertex[v1].z);
 #endif
 }
 
